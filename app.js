@@ -51,6 +51,45 @@ function showSection(sectionId) { document.querySelectorAll('.content-section').
 function setupPasswordToggle() { const toggleIcon = document.getElementById('togglePassword'); const passwordInput = document.getElementById('password'); if (!toggleIcon || !passwordInput) return; const eyeIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`; const eyeSlashIcon = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243l-4.243-4.243" /></svg>`; toggleIcon.innerHTML = eyeIcon; toggleIcon.addEventListener('click', () => { if (passwordInput.type === 'password') { passwordInput.type = 'text'; toggleIcon.innerHTML = eyeSlashIcon; } else { passwordInput.type = 'password'; toggleIcon.innerHTML = eyeIcon; } }); }
 function resetAndDisableDropdown(selectElement, defaultText) { if (selectElement) { selectElement.innerHTML = `<option value="">${defaultText}</option>`; selectElement.disabled = true; } }
 
+// ======================================================
+// === FUNGSI BARU DITAMBAHKAN DI SINI ==================
+// ======================================================
+function updateNilaiInputType() {
+    const tipePenilaian = document.querySelector('input[name="tipePenilaian"]:checked').value;
+    const tableBody = document.getElementById('nilaiTableBody');
+    if (!tableBody) return;
+
+    tableBody.querySelectorAll('tr').forEach(row => {
+        const nilaiCell = row.querySelector('td[data-label="Nilai"]');
+        if (nilaiCell) {
+            const currentValue = nilaiCell.firstElementChild ? nilaiCell.firstElementChild.value : '';
+            let newElement;
+
+            if (tipePenilaian === 'angka') {
+                newElement = document.createElement('input');
+                newElement.type = 'number';
+                newElement.className = 'nilai-input';
+                newElement.min = "0";
+                newElement.max = "100";
+                newElement.step = "1";
+                newElement.placeholder = "0-100";
+            } else { // deskripsi
+                newElement = document.createElement('textarea');
+                newElement.className = 'nilai-input';
+                newElement.rows = 2;
+                newElement.placeholder = "Masukkan deskripsi...";
+            }
+            
+            newElement.value = currentValue;
+            nilaiCell.innerHTML = '';
+            nilaiCell.appendChild(newElement);
+        }
+    });
+}
+// ======================================================
+// === AKHIR DARI FUNGSI BARU ===========================
+// ======================================================
+
 // ====================================================================
 // TAHAP 3: FUNGSI-FUNGSI UTAMA
 // ====================================================================
@@ -259,8 +298,135 @@ async function deleteUserHandler(username) { const loggedInUser = JSON.parse(ses
 function resetFormPengguna() { document.getElementById('formPengguna').reset(); document.getElementById('formUsernameOld').value = ''; document.getElementById('savePenggunaButton').textContent = 'Simpan Pengguna'; document.getElementById('formPassword').placeholder = 'Isi password baru'; }
 
 // --- 3.7. INPUT NILAI ---
-async function loadSiswaUntukNilai() { const tahunAjaran = nilaiFilterTahunAjaranEl.value; const semester = nilaiFilterSemesterEl.value; const kelas = nilaiFilterKelasEl.value; const mapel = nilaiFilterMataPelajaranEl.value; if (!tahunAjaran || !semester || !kelas || !mapel) { return showStatusMessage('Pilih semua filter (Tahun Ajaran, Semester, Kelas, Mapel) terlebih dahulu.', 'error'); } areaInputNilai.classList.remove('hidden'); jenisNilaiInput.value = ''; nilaiTableHead.innerHTML = ''; nilaiTableBody.innerHTML = '<tr><td colspan="3">Memuat siswa...</td></tr>'; const params = new URLSearchParams({ action: 'getSiswaForPresensi', tahunAjaran, semester, kelas, mapel }).toString(); try { const response = await fetch(`${SCRIPT_URL}?${params}`); const result = await response.json(); nilaiTableBody.innerHTML = ''; if (result.status === 'success' && result.data.length > 0) { jenisNilaiInput.focus(); jenisNilaiInput.oninput = () => { const jenisNilai = jenisNilaiInput.value.trim(); nilaiTableHead.innerHTML = `<tr><th>NISN</th><th>Nama Siswa</th><th>Nilai (${jenisNilai || '...'})</th></tr>`; }; jenisNilaiInput.dispatchEvent(new Event('input')); result.data.forEach(siswa => { const tr = document.createElement('tr'); tr.dataset.nisn = siswa.NISN; tr.dataset.nama = siswa.Nama; tr.innerHTML = `<td data-label="NISN">${siswa.NISN}</td><td data-label="Nama Siswa">${siswa.Nama}</td><td data-label="Nilai"><input type="number" class="nilai-input" min="0" max="100" step="1" placeholder="0-100"></td>`; nilaiTableBody.appendChild(tr); }); checkExistingNilai(); } else { nilaiTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Tidak ada siswa yang cocok dengan filter.</td></tr>'; } } catch (error) { showStatusMessage('Gagal memuat siswa: ' + error.message, 'error'); } }
-async function submitNilai() { const detailNilai = { tahunAjaran: nilaiFilterTahunAjaranEl.value, semester: nilaiFilterSemesterEl.value, kelas: nilaiFilterKelasEl.value, mataPelajaran: nilaiFilterMataPelajaranEl.value, jenisNilai: jenisNilaiInput.value.trim() }; if (!detailNilai.jenisNilai) { return showStatusMessage('Harap isi kolom "Jenis Penilaian" terlebih dahulu.', 'error'); } const nilaiSiswa = []; document.querySelectorAll('#nilaiTableBody tr').forEach(row => { const nilaiInput = row.querySelector('.nilai-input'); if (nilaiInput && nilaiInput.value !== '') { nilaiSiswa.push({ nisn: row.dataset.nisn, nama: row.dataset.nama, nilai: parseFloat(nilaiInput.value) }); } }); if (nilaiSiswa.length === 0) { return showStatusMessage('Tidak ada nilai yang diisi. Harap masukkan setidaknya satu nilai siswa.', 'error'); } const isUpdateMode = submitNilaiButton.dataset.mode === 'update'; const dataUntukKirim = { detail: detailNilai, nilaiSiswa: nilaiSiswa, isUpdate: isUpdateMode }; showLoading(true); try { const response = await fetch(`${SCRIPT_URL}?action=submitNilai`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dataUntukKirim) }); const result = await response.json(); if (result.status === 'success') { showStatusMessage(result.message, 'success'); areaInputNilai.classList.add('hidden'); jenisNilaiInput.value = ''; nilaiTableHead.innerHTML = ''; nilaiTableBody.innerHTML = ''; fetch(`${SCRIPT_URL}?action=getUniqueJenisNilai`).then(res => res.json()).then(result => { if(result.status === 'success') cachedJenisNilai = result.data; }); } else { showStatusMessage(`Gagal: ${result.message}`, 'error'); } } catch (error) { showStatusMessage(`Terjadi kesalahan jaringan: ${error.message}`, 'error'); } finally { showLoading(false); } }
+// ======================================================
+// === FUNGSI loadSiswaUntukNilai DIMODIFIKASI =========
+// ======================================================
+async function loadSiswaUntukNilai() {
+    const tahunAjaran = nilaiFilterTahunAjaranEl.value;
+    const semester = nilaiFilterSemesterEl.value;
+    const kelas = nilaiFilterKelasEl.value;
+    const mapel = nilaiFilterMataPelajaranEl.value;
+    if (!tahunAjaran || !semester || !kelas || !mapel) {
+        return showStatusMessage('Pilih semua filter (Tahun Ajaran, Semester, Kelas, Mapel) terlebih dahulu.', 'error');
+    }
+    areaInputNilai.classList.remove('hidden');
+    jenisNilaiInput.value = '';
+    nilaiTableHead.innerHTML = '';
+    nilaiTableBody.innerHTML = '<tr><td colspan="3">Memuat siswa...</td></tr>';
+    
+    const tipePenilaian = document.querySelector('input[name="tipePenilaian"]:checked').value;
+    const params = new URLSearchParams({ action: 'getSiswaForPresensi', tahunAjaran, semester, kelas, mapel }).toString();
+    
+    try {
+        const response = await fetch(`${SCRIPT_URL}?${params}`);
+        const result = await response.json();
+        nilaiTableBody.innerHTML = '';
+        if (result.status === 'success' && result.data.length > 0) {
+            jenisNilaiInput.focus();
+            jenisNilaiInput.oninput = () => {
+                const jenisNilai = jenisNilaiInput.value.trim();
+                nilaiTableHead.innerHTML = `<tr><th>NISN</th><th>Nama Siswa</th><th>Nilai (${jenisNilai || '...'})</th></tr>`;
+            };
+            jenisNilaiInput.dispatchEvent(new Event('input'));
+            result.data.forEach(siswa => {
+                const tr = document.createElement('tr');
+                tr.dataset.nisn = siswa.NISN;
+                tr.dataset.nama = siswa.Nama;
+
+                let inputHtml = '';
+                if (tipePenilaian === 'angka') {
+                    inputHtml = `<input type="number" class="nilai-input" min="0" max="100" step="1" placeholder="0-100">`;
+                } else { // deskripsi
+                    inputHtml = `<textarea class="nilai-input" rows="2" placeholder="Masukkan deskripsi..."></textarea>`;
+                }
+
+                tr.innerHTML = `
+                    <td data-label="NISN">${siswa.NISN}</td>
+                    <td data-label="Nama Siswa">${siswa.Nama}</td>
+                    <td data-label="Nilai">${inputHtml}</td>`;
+
+                nilaiTableBody.appendChild(tr);
+            });
+            checkExistingNilai();
+        } else {
+            nilaiTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Tidak ada siswa yang cocok dengan filter.</td></tr>';
+        }
+    } catch (error) {
+        showStatusMessage('Gagal memuat siswa: ' + error.message, 'error');
+    }
+}
+// ======================================================
+// === FUNGSI submitNilai DIMODIFIKASI ==================
+// ======================================================
+async function submitNilai() {
+    const detailNilai = {
+        tahunAjaran: nilaiFilterTahunAjaranEl.value,
+        semester: nilaiFilterSemesterEl.value,
+        kelas: nilaiFilterKelasEl.value,
+        mataPelajaran: nilaiFilterMataPelajaranEl.value,
+        jenisNilai: jenisNilaiInput.value.trim()
+    };
+    if (!detailNilai.jenisNilai) {
+        return showStatusMessage('Harap isi kolom "Jenis Penilaian" terlebih dahulu.', 'error');
+    }
+
+    const tipePenilaian = document.querySelector('input[name="tipePenilaian"]:checked').value;
+    const nilaiSiswa = [];
+    document.querySelectorAll('#nilaiTableBody tr').forEach(row => {
+        const nilaiInput = row.querySelector('.nilai-input');
+        if (nilaiInput && nilaiInput.value.trim() !== '') {
+            let nilai;
+            if (tipePenilaian === 'angka') {
+                nilai = parseFloat(nilaiInput.value);
+            } else {
+                nilai = nilaiInput.value;
+            }
+            nilaiSiswa.push({
+                nisn: row.dataset.nisn,
+                nama: row.dataset.nama,
+                nilai: nilai
+            });
+        }
+    });
+
+    if (nilaiSiswa.length === 0) {
+        return showStatusMessage('Tidak ada nilai yang diisi. Harap masukkan setidaknya satu nilai siswa.', 'error');
+    }
+    const isUpdateMode = submitNilaiButton.dataset.mode === 'update';
+    const dataUntukKirim = {
+        detail: detailNilai,
+        nilaiSiswa: nilaiSiswa,
+        isUpdate: isUpdateMode
+    };
+    showLoading(true);
+    try {
+        const response = await fetch(`${SCRIPT_URL}?action=submitNilai`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+            },
+            body: JSON.stringify(dataUntukKirim)
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            showStatusMessage(result.message, 'success');
+            areaInputNilai.classList.add('hidden');
+            jenisNilaiInput.value = '';
+            nilaiTableHead.innerHTML = '';
+            nilaiTableBody.innerHTML = '';
+            fetch(`${SCRIPT_URL}?action=getUniqueJenisNilai`).then(res => res.json()).then(result => {
+                if (result.status === 'success') cachedJenisNilai = result.data;
+            });
+        } else {
+            showStatusMessage(`Gagal: ${result.message}`, 'error');
+        }
+    } catch (error) {
+        showStatusMessage(`Terjadi kesalahan jaringan: ${error.message}`, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
 function showJenisNilaiSuggestions() { const query = jenisNilaiInput.value.toLowerCase(); jenisNilaiSaranEl.innerHTML = ''; if (query.length === 0) { jenisNilaiSaranEl.classList.add('hidden'); return; } const suggestions = cachedJenisNilai.filter(jenis => jenis.toLowerCase().includes(query)); if (suggestions.length > 0) { suggestions.forEach(suggestion => { const itemDiv = document.createElement('div'); itemDiv.className = 'rekomendasi-item'; itemDiv.textContent = suggestion; itemDiv.onclick = () => { jenisNilaiInput.value = suggestion; jenisNilaiSaranEl.classList.add('hidden'); jenisNilaiInput.dispatchEvent(new Event('input')); }; jenisNilaiSaranEl.appendChild(itemDiv); }); jenisNilaiSaranEl.classList.remove('hidden'); } else { jenisNilaiSaranEl.classList.add('hidden'); } }
 async function checkExistingNilai() { const detailFilter = { tahunAjaran: nilaiFilterTahunAjaranEl.value, semester: nilaiFilterSemesterEl.value, kelas: nilaiFilterKelasEl.value, mapel: nilaiFilterMataPelajaranEl.value, jenisNilai: jenisNilaiInput.value.trim() }; submitNilaiButton.textContent = "Masukkan Nilai"; submitNilaiButton.dataset.mode = "insert"; submitNilaiButton.classList.remove('btn-accent'); submitNilaiButton.classList.add('btn-primary'); document.querySelectorAll('#nilaiTableBody .nilai-input').forEach(input => input.value = ''); if (!detailFilter.jenisNilai) return; const params = new URLSearchParams({ action: 'getExistingNilai', ...detailFilter }).toString(); try { const response = await fetch(`${SCRIPT_URL}?${params}`); const result = await response.json(); if (result.status === 'success' && result.data.length > 0) { showStatusMessage(`Data untuk "${detailFilter.jenisNilai}" ditemukan. Mode update aktif.`, 'info'); submitNilaiButton.textContent = "Update Nilai"; submitNilaiButton.dataset.mode = "update"; submitNilaiButton.classList.remove('btn-primary'); submitNilaiButton.classList.add('btn-accent'); const nilaiMap = new Map(result.data.map(item => [String(item.nisn), item.nilai])); document.querySelectorAll('#nilaiTableBody tr').forEach(row => { const nisn = row.dataset.nisn; if (nilaiMap.has(nisn)) { const nilaiInput = row.querySelector('.nilai-input'); nilaiInput.value = nilaiMap.get(nisn); } }); } } catch (error) { console.error("Gagal mengecek nilai yang ada:", error); } }
 
@@ -322,6 +488,16 @@ function setupDashboardListeners() {
     document.getElementById('resetPenggunaButton')?.addEventListener('click', resetFormPengguna);
     loadSiswaUntukNilaiButton?.addEventListener('click', loadSiswaUntukNilai);
     submitNilaiButton?.addEventListener('click', submitNilai);
+
+    // ======================================================
+    // === EVENT LISTENER BARU DITAMBAHKAN DI SINI ========
+    // ======================================================
+    document.querySelectorAll('input[name="tipePenilaian"]').forEach(radio => {
+        radio.addEventListener('change', updateNilaiInputType);
+    });
+    // ======================================================
+    // === AKHIR DARI EVENT LISTENER BARU ===================
+    // ======================================================
 
     jenisNilaiInput?.addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => { showJenisNilaiSuggestions(); checkExistingNilai(); }, 400); });
     jenisNilaiInput?.addEventListener('blur', () => { setTimeout(() => jenisNilaiSaranEl.classList.add('hidden'), 200); });
